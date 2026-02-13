@@ -1,0 +1,194 @@
+# Claude
+.claude
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# ============================================
+# Go (api/)
+# ============================================
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+api/*.exe
+api/api
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+api/vendor/
+
+# Build/Temp directories
+api/tmp/
+api/bin/
+api/dist/
+
+# ============================================
+# Node.js / Bun (admin/)
+# ============================================
+# Dependencies
+admin/node_modules/
+
+# Build outputs
+admin/dist/
+admin/build/
+
+# Cache
+admin/.vite/
+admin/.cache/
+.npm
+.eslintcache
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-*.log
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Lock files (keep bun.lock, ignore others if using bun)
+admin/package-lock.json
+admin/yarn.lock
+admin/pnpm-lock.yaml
+
+# Environment
+admin/.env
+admin/.env.local
+admin/.env.development.local
+admin/.env.test.local
+admin/.env.production.local
+
+# ============================================
+# Flutter / Dart (callflow_app/)
+# ============================================
+# Flutter/Dart/Pub
+callflow_app/.dart_tool/
+callflow_app/.packages
+callflow_app/.flutter-plugins
+callflow_app/.flutter-plugins-dependencies
+callflow_app/.pub-cache/
+callflow_app/.pub/
+callflow_app/pubspec.lock
+
+# Build outputs
+callflow_app/build/
+callflow_app/.build/
+
+# Generated Dart files
+*.g.dart
+*.freezed.dart
+*.gr.dart
+*.mocks.dart
+
+# Web build
+callflow_app/web/.dart_tool/
+callflow_app/web/.packages
+
+# Android
+callflow_app/android/.gradle/
+callflow_app/android/captures/
+callflow_app/android/gradlew
+callflow_app/android/gradlew.bat
+callflow_app/android/local.properties
+callflow_app/android/**/GeneratedPluginRegistrant.java
+callflow_app/android/key.properties
+*.keystore
+*.jks
+
+# iOS
+callflow_app/ios/.symlinks/
+callflow_app/ios/Flutter/Flutter.framework
+callflow_app/ios/Flutter/Flutter.podspec
+callflow_app/ios/Pods/
+callflow_app/ios/.generated/
+callflow_app/ios/Flutter/app.flx
+callflow_app/ios/Flutter/app.zip
+callflow_app/ios/Flutter/flutter_assets/
+callflow_app/ios/Flutter/flutter_export_environment.sh
+callflow_app/ios/ServiceDefinitions.json
+callflow_app/ios/Runner/GeneratedPluginRegistrant.*
+callflow_app/ios/**/*.mode1v3
+callflow_app/ios/**/*.mode2v3
+callflow_app/ios/**/*.moved-aside
+callflow_app/ios/**/*.pbxuser
+callflow_app/ios/**/*.perspectivev3
+callflow_app/ios/**/*.xcuserstate
+callflow_app/ios/**/*.xcworkspace/xcuserdata/
+callflow_app/ios/**/*.hmap
+callflow_app/ios/**/*.ipa
+callflow_app/ios/**/*sync/
+callflow_app/ios/.last_build_id
+callflow_app/ios/DerivedData/
+
+# macOS
+callflow_app/macos/.symlinks/
+callflow_app/macos/Pods/
+callflow_app/macos/Flutter/GeneratedPluginRegistrant.swift
+callflow_app/macos/Flutter/ephemeral/
+
+# Windows
+callflow_app/windows/flutter/generated_plugin_registrant.cc
+callflow_app/windows/flutter/generated_plugin_registrant.h
+callflow_app/windows/flutter/generated_plugins.cmake
+
+# Linux
+callflow_app/linux/flutter/generated_plugin_registrant.cc
+callflow_app/linux/flutter/generated_plugin_registrant.h
+callflow_app/linux/flutter/generated_plugins.cmake
+
+# IntelliJ
+*.iml
+
+# ============================================
+# Docker
+# ============================================
+docker-compose.override.yml
+
+# ============================================
+# Environment & Secrets
+# ============================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# ============================================
+# Misc
+# ============================================
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup

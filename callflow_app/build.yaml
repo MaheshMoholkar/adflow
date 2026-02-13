@@ -1,0 +1,7 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          generate_connect_constructor: false
+          scoped_dart_components: true

@@ -1,0 +1,118 @@
+package com.callflow.messaging
+
+import android.content.Context
+import android.util.Log
+import com.callflow.bridge.CallEventStreamHandler
+import com.callflow.rules.LocalRuleEngine
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class ChannelRouter(
+    private val context: Context,
+    private val smsModule: SmsModule,
+    private val ruleEngine: LocalRuleEngine
+) {
+    companion object {
+        const val TAG = "ChannelRouter"
+    }
+
+    fun processCallEvent(eventJson: String) {
+        try {
+            val event = JSONObject(eventJson)
+            val phone = event.optString("phone", "")
+            val contactName = event.optString("contact_name", "")
+            val direction = event.optString("direction", "")
+            val durationSeconds = event.optInt("duration_seconds", 0)
+            val eventId = event.optString("event_id", "")
+
+            if (phone.isEmpty() || direction.isEmpty()) {
+                Log.w(TAG, "Invalid event data: missing phone or direction")
+                return
+            }
+
+            // Check if we should process this event
+            val evaluation = ruleEngine.evaluate(phone, direction, contactName, context)
+            if (!evaluation.shouldProcess) {
+                Log.d(TAG, "Event skipped: ${evaluation.reason}")
+                return
+            }
+
+            // Mark number as sent for unique-per-day
+            ruleEngine.markSent(phone)
+
+            val delayMs = (evaluation.delaySeconds * 1000).toLong()
+
+            // Process after delay
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                dispatchMessages(
+                    phone, contactName, direction, durationSeconds, eventId, evaluation
+                )
+            }, delayMs)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error processing call event", e)
+        }
+    }
+
+    private fun dispatchMessages(
+        phone: String,
+        contactName: String,
+        direction: String,
+        durationSeconds: Int,
+        eventId: String,
+        evaluation: LocalRuleEngine.RuleEvaluation
+    ) {
+        val now = Date()
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
+
+        val variables = mapOf(
+            "contact_name" to contactName.ifEmpty { phone },
+            "business_name" to ruleEngine.getBusinessName(),
+            "phone_number" to phone,
+            "call_duration" to formatDuration(durationSeconds),
+            "date" to dateFormat.format(now),
+            "time" to timeFormat.format(now)
+        )
+
+        // Build brace-wrapped variables for SMS template substitution
+        val braceVariables = variables.mapKeys { "{${it.key}}" }
+
+        // Send SMS if enabled
+        if (evaluation.sendSMS && evaluation.smsTemplate != null) {
+            val message = substituteVariables(evaluation.smsTemplate, braceVariables)
+            val simSlot = evaluation.smsSimSlot
+
+            smsModule.sendSms(phone, message, simSlot) { success, error ->
+                val parts = smsModule.getSmsParts(message)
+                val logData = mapOf<String, Any?>(
+                    "type" to "message_log",
+                    "event_id" to eventId,
+                    "channel" to "sms",
+                    "status" to if (success) "sent" else "failed",
+                    "send_method" to "sms_manager",
+                    "sim_slot" to simSlot,
+                    "sms_parts" to parts,
+                    "error_message" to error,
+                    "sent_at" to System.currentTimeMillis()
+                )
+                CallEventStreamHandler.getInstance().sendMessageLog(logData)
+            }
+        }
+    }
+
+    private fun substituteVariables(template: String, variables: Map<String, String>): String {
+        var result = template
+        variables.forEach { (key, value) ->
+            result = result.replace(key, value)
+        }
+        return result
+    }
+
+    private fun formatDuration(seconds: Int): String {
+        val minutes = seconds / 60
+        val secs = seconds % 60
+        return if (minutes > 0) "${minutes}m ${secs}s" else "${secs}s"
+    }
+}
