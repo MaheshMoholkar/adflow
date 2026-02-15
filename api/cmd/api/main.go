@@ -49,7 +49,11 @@ func main() {
 	// Services
 	authService := service.NewAuthService(userRepo, jwtSecret)
 	userService := service.NewUserService(userRepo)
-	templateService := service.NewTemplateService(templateRepo)
+	uploadThingStore, uploadThingErr := service.NewUploadThingImageStoreFromEnv()
+	if uploadThingErr != nil {
+		log.Printf("UploadThing not configured: %v", uploadThingErr)
+	}
+	templateService := service.NewTemplateService(templateRepo, uploadThingStore)
 	ruleService := service.NewRuleService(ruleRepo)
 	contactService := service.NewContactService(contactRepo)
 

@@ -34,21 +34,24 @@ class AppDatabase extends _$AppDatabase {
   // --- Template queries ---
 
   Stream<List<Template>> watchTemplates() {
-    return (select(templates)..orderBy([
-      (t) => OrderingTerm.desc(t.createdAt),
-    ])).watch();
+    return (select(templates)
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.createdAt),
+          ]))
+        .watch();
   }
 
   Future<List<Template>> getTemplates() {
-    return (select(templates)..orderBy([
-      (t) => OrderingTerm.desc(t.createdAt),
-    ])).get();
+    return (select(templates)
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.createdAt),
+          ]))
+        .get();
   }
 
   Future<List<Template>> getTemplatesByChannel(String channel) {
     return (select(templates)
-          ..where((t) =>
-              t.channel.equals(channel) | t.channel.equals('both')))
+          ..where((t) => t.channel.equals(channel) | t.channel.equals('both')))
         .get();
   }
 
@@ -57,8 +60,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<bool> updateTemplate(TemplatesCompanion template) {
-    return (update(templates)
-          ..where((t) => t.id.equals(template.id.value)))
+    return (update(templates)..where((t) => t.id.equals(template.id.value)))
         .write(template)
         .then((rows) => rows > 0);
   }
@@ -70,9 +72,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> replaceServerTemplates(
       List<TemplatesCompanion> serverTemplates) async {
     await transaction(() async {
-      await (delete(templates)
-            ..where((t) => t.source.equals('server')))
-          .go();
+      await (delete(templates)..where((t) => t.source.equals('server'))).go();
       for (final tmpl in serverTemplates) {
         await into(templates).insert(tmpl);
       }
@@ -92,8 +92,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> upsertRule(RulesCompanion rule) async {
     final existing = await getRule();
     if (existing != null) {
-      await (update(rules)..where((r) => r.id.equals(existing.id)))
-          .write(rule);
+      await (update(rules)..where((r) => r.id.equals(existing.id))).write(rule);
     } else {
       await into(rules).insert(rule);
     }
@@ -167,6 +166,15 @@ class AppDatabase extends _$AppDatabase {
     return result.length;
   }
 
+  Stream<int> watchEventsTodayCount() {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    return (select(callEvents)
+          ..where((e) => e.callTimestamp.isBiggerOrEqualValue(startOfDay)))
+        .watch()
+        .map((rows) => rows.length);
+  }
+
   Future<int> countMessagesByChannel(String channel) async {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
@@ -178,6 +186,17 @@ class AppDatabase extends _$AppDatabase {
     return result.length;
   }
 
+  Stream<int> watchMessagesByChannelCount(String channel) {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    return (select(messageLogs)
+          ..where((m) =>
+              m.channel.equals(channel) &
+              m.sentAt.isBiggerOrEqualValue(startOfDay)))
+        .watch()
+        .map((rows) => rows.length);
+  }
+
   Future<double> successRate() async {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
@@ -185,8 +204,23 @@ class AppDatabase extends _$AppDatabase {
           ..where((m) => m.sentAt.isBiggerOrEqualValue(startOfDay)))
         .get();
     if (all.isEmpty) return 0.0;
-    final sent = all.where((m) => m.status == 'sent' || m.status == 'delivered');
+    final sent =
+        all.where((m) => m.status == 'sent' || m.status == 'delivered');
     return sent.length / all.length;
+  }
+
+  Stream<double> watchSuccessRate() {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    return (select(messageLogs)
+          ..where((m) => m.sentAt.isBiggerOrEqualValue(startOfDay)))
+        .watch()
+        .map((all) {
+      if (all.isEmpty) return 0.0;
+      final sent =
+          all.where((m) => m.status == 'sent' || m.status == 'delivered');
+      return sent.length / all.length;
+    });
   }
 
   // --- Cleanup ---

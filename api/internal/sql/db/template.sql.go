@@ -12,9 +12,9 @@ import (
 )
 
 const createTemplate = `-- name: CreateTemplate :one
-INSERT INTO templates (user_id, name, body, type, channel, language, is_default)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, name, body, type, channel, language, is_default, created_at, updated_at
+INSERT INTO templates (user_id, name, body, type, channel, image_url, image_key, language, is_default)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, user_id, name, body, type, channel, image_url, image_key, language, is_default, created_at, updated_at
 `
 
 type CreateTemplateParams struct {
@@ -23,6 +23,8 @@ type CreateTemplateParams struct {
 	Body      string      `json:"body"`
 	Type      string      `json:"type"`
 	Channel   string      `json:"channel"`
+	ImageUrl  pgtype.Text `json:"image_url"`
+	ImageKey  pgtype.Text `json:"image_key"`
 	Language  pgtype.Text `json:"language"`
 	IsDefault bool        `json:"is_default"`
 }
@@ -34,6 +36,8 @@ func (q *Queries) CreateTemplate(ctx context.Context, arg CreateTemplateParams) 
 		arg.Body,
 		arg.Type,
 		arg.Channel,
+		arg.ImageUrl,
+		arg.ImageKey,
 		arg.Language,
 		arg.IsDefault,
 	)
@@ -45,6 +49,8 @@ func (q *Queries) CreateTemplate(ctx context.Context, arg CreateTemplateParams) 
 		&i.Body,
 		&i.Type,
 		&i.Channel,
+		&i.ImageUrl,
+		&i.ImageKey,
 		&i.Language,
 		&i.IsDefault,
 		&i.CreatedAt,
@@ -68,7 +74,7 @@ func (q *Queries) DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) 
 }
 
 const getTemplateByID = `-- name: GetTemplateByID :one
-SELECT id, user_id, name, body, type, channel, language, is_default, created_at, updated_at FROM templates WHERE id = $1 AND user_id = $2
+SELECT id, user_id, name, body, type, channel, image_url, image_key, language, is_default, created_at, updated_at FROM templates WHERE id = $1 AND user_id = $2
 `
 
 type GetTemplateByIDParams struct {
@@ -86,6 +92,8 @@ func (q *Queries) GetTemplateByID(ctx context.Context, arg GetTemplateByIDParams
 		&i.Body,
 		&i.Type,
 		&i.Channel,
+		&i.ImageUrl,
+		&i.ImageKey,
 		&i.Language,
 		&i.IsDefault,
 		&i.CreatedAt,
@@ -95,7 +103,7 @@ func (q *Queries) GetTemplateByID(ctx context.Context, arg GetTemplateByIDParams
 }
 
 const getTemplateByUserID = `-- name: GetTemplateByUserID :many
-SELECT id, user_id, name, body, type, channel, language, is_default, created_at, updated_at FROM templates WHERE user_id = $1 ORDER BY created_at DESC
+SELECT id, user_id, name, body, type, channel, image_url, image_key, language, is_default, created_at, updated_at FROM templates WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) GetTemplateByUserID(ctx context.Context, userID int64) ([]Template, error) {
@@ -114,6 +122,8 @@ func (q *Queries) GetTemplateByUserID(ctx context.Context, userID int64) ([]Temp
 			&i.Body,
 			&i.Type,
 			&i.Channel,
+			&i.ImageUrl,
+			&i.ImageKey,
 			&i.Language,
 			&i.IsDefault,
 			&i.CreatedAt,
@@ -135,11 +145,13 @@ SET name = $3,
     body = $4,
     type = $5,
     channel = $6,
-    language = $7,
-    is_default = $8,
+    image_url = $7,
+    image_key = $8,
+    language = $9,
+    is_default = $10,
     updated_at = NOW()
 WHERE id = $1 AND user_id = $2
-RETURNING id, user_id, name, body, type, channel, language, is_default, created_at, updated_at
+RETURNING id, user_id, name, body, type, channel, image_url, image_key, language, is_default, created_at, updated_at
 `
 
 type UpdateTemplateParams struct {
@@ -149,6 +161,8 @@ type UpdateTemplateParams struct {
 	Body      string      `json:"body"`
 	Type      string      `json:"type"`
 	Channel   string      `json:"channel"`
+	ImageUrl  pgtype.Text `json:"image_url"`
+	ImageKey  pgtype.Text `json:"image_key"`
 	Language  pgtype.Text `json:"language"`
 	IsDefault bool        `json:"is_default"`
 }
@@ -161,6 +175,8 @@ func (q *Queries) UpdateTemplate(ctx context.Context, arg UpdateTemplateParams) 
 		arg.Body,
 		arg.Type,
 		arg.Channel,
+		arg.ImageUrl,
+		arg.ImageKey,
 		arg.Language,
 		arg.IsDefault,
 	)
@@ -172,6 +188,8 @@ func (q *Queries) UpdateTemplate(ctx context.Context, arg UpdateTemplateParams) 
 		&i.Body,
 		&i.Type,
 		&i.Channel,
+		&i.ImageUrl,
+		&i.ImageKey,
 		&i.Language,
 		&i.IsDefault,
 		&i.CreatedAt,

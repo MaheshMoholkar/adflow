@@ -10,6 +10,8 @@ type Template struct {
 	Body      string    `json:"body"`
 	Type      string    `json:"type"`    // incoming/outgoing/missed
 	Channel   string    `json:"channel"` // sms
+	ImageURL  *string   `json:"image_url,omitempty"`
+	ImageKey  *string   `json:"-"`
 	Language  string    `json:"language"`
 	IsDefault bool      `json:"is_default"`
 	CreatedAt time.Time `json:"created_at"`
@@ -18,22 +20,31 @@ type Template struct {
 
 // TemplateCreate contains data for creating a template
 type TemplateCreate struct {
-	Name      string `json:"name" validate:"required,max=255"`
-	Body      string `json:"body" validate:"required"`
-	Type      string `json:"type" validate:"required,oneof=all incoming outgoing missed"`
-	Channel   string `json:"channel" validate:"omitempty"`
-	Language  string `json:"language"`
-	IsDefault bool   `json:"is_default"`
+	Name      string  `json:"name" validate:"required,max=255"`
+	Body      string  `json:"body" validate:"required"`
+	Type      string  `json:"type" validate:"required,oneof=all incoming outgoing missed"`
+	Channel   string  `json:"channel" validate:"omitempty"`
+	ImageURL  *string `json:"image_url" validate:"omitempty"`
+	ImageKey  *string `json:"image_key" validate:"omitempty"`
+	Language  string  `json:"language"`
+	IsDefault bool    `json:"is_default"`
 }
 
 // TemplateUpdate contains data for updating a template
 type TemplateUpdate struct {
-	Name      string `json:"name" validate:"required,max=255"`
-	Body      string `json:"body" validate:"required"`
-	Type      string `json:"type" validate:"required,oneof=all incoming outgoing missed"`
-	Channel   string `json:"channel" validate:"omitempty"`
-	Language  string `json:"language"`
-	IsDefault bool   `json:"is_default"`
+	Name      string  `json:"name" validate:"required,max=255"`
+	Body      string  `json:"body" validate:"required"`
+	Type      string  `json:"type" validate:"required,oneof=all incoming outgoing missed"`
+	Channel   string  `json:"channel" validate:"omitempty"`
+	ImageURL  *string `json:"image_url" validate:"omitempty"`
+	ImageKey  *string `json:"image_key" validate:"omitempty"`
+	Language  string  `json:"language"`
+	IsDefault bool    `json:"is_default"`
+}
+
+type UploadedImage struct {
+	URL string `json:"image_url"`
+	Key string `json:"image_key"`
 }
 
 // Type constants

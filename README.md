@@ -62,6 +62,7 @@ cp .env.example .env
 | `MSG91_AUTH_KEY` | — | MSG91 auth key (optional) |
 | `MSG91_OTP_TEMPLATE_ID` | — | MSG91 OTP template (optional) |
 | `CORS_ALLOW_ORIGINS` | `http://localhost:3000` | Allowed CORS origins |
+| `UPLOADTHING_TOKEN` | — | UploadThing token (required for template image upload) |
 
 ### Database
 

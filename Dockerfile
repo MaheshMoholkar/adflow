@@ -1,5 +1,5 @@
 # --- Admin build stage ---
-FROM node:20-alpine AS admin-build
+FROM --platform=$BUILDPLATFORM node:20-alpine AS admin-build
 WORKDIR /app/admin
 COPY admin/package.json admin/package-lock.json ./
 RUN npm ci
@@ -7,8 +7,10 @@ COPY admin/ .
 RUN npm run build
 
 # --- Backend build stage ---
-FROM golang:1.24-alpine AS api-build
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS api-build
 WORKDIR /app
+ARG TARGETOS
+ARG TARGETARCH
 
 RUN apk add --no-cache git ca-certificates
 
@@ -16,7 +18,7 @@ COPY api/go.mod api/go.sum ./
 RUN go mod download
 
 COPY api/ .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o /out/api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-s -w" -o /out/api ./cmd/api
 
 
 # --- Final runtime image ---

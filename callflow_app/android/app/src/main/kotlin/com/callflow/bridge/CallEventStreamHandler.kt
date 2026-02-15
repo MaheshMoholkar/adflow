@@ -37,10 +37,7 @@ class CallEventStreamHandler private constructor() : EventChannel.StreamHandler 
 
     fun sendMessageLog(logData: Map<String, Any?>) {
         mainHandler.post {
-            eventSink?.success(mapOf(
-                "type" to "message_log",
-                "data" to logData
-            ))
+            eventSink?.success(logData)
         }
     }
 

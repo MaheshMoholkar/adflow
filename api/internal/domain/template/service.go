@@ -9,4 +9,5 @@ type Service interface {
 	Create(ctx context.Context, userID int64, data TemplateCreate) (*Template, error)
 	Update(ctx context.Context, id int64, userID int64, data TemplateUpdate) (*Template, error)
 	Delete(ctx context.Context, id int64, userID int64) error
+	UploadImage(ctx context.Context, userID int64, filename, contentType string, file []byte) (*UploadedImage, error)
 }

@@ -56,6 +56,7 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
 
   Future<void> _loadConfig() async {
     final db = ref.read(databaseProvider);
+    final smsTemplates = await db.getTemplatesByChannel('sms');
     final rule = await db.getRule();
     if (rule != null) {
       try {
@@ -66,9 +67,18 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
           final sms = config['sms'] as Map<String, dynamic>?;
           if (sms != null) {
             _smsEnabled = sms['enabled'] as bool? ?? false;
-            _smsIncomingTemplateId = sms['incoming_template_id'] as int?;
-            _smsOutgoingTemplateId = sms['outgoing_template_id'] as int?;
-            _smsMissedTemplateId = sms['missed_template_id'] as int?;
+            _smsIncomingTemplateId = _normalizeTemplateId(
+              _parseTemplateId(sms['incoming_template_id']),
+              smsTemplates,
+            );
+            _smsOutgoingTemplateId = _normalizeTemplateId(
+              _parseTemplateId(sms['outgoing_template_id']),
+              smsTemplates,
+            );
+            _smsMissedTemplateId = _normalizeTemplateId(
+              _parseTemplateId(sms['missed_template_id']),
+              smsTemplates,
+            );
           }
 
           _uniquePerDay = config['unique_per_day'] as bool? ?? false;
@@ -103,6 +113,26 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
       } catch (_) {}
     }
     setState(() => _loading = false);
+  }
+
+  int? _parseTemplateId(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  int? _normalizeTemplateId(int? storedId, List<Template> templates) {
+    if (storedId == null) return null;
+    final matchesCanonical =
+        templates.any((t) => (t.serverId ?? t.id) == storedId);
+    if (matchesCanonical) return storedId;
+
+    final localMatch = templates.where((t) => t.id == storedId).firstOrNull;
+    if (localMatch != null) {
+      return localMatch.serverId ?? localMatch.id;
+    }
+    return null;
   }
 
   Map<String, dynamic> _buildConfig() {
@@ -159,7 +189,11 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
         'plan': user?.plan ?? 'none',
         'plan_expires_at': user?.planExpiresAt?.millisecondsSinceEpoch ?? 0,
         'templates': templates
-            .map((t) => {'id': t.serverId ?? t.id, 'body': t.body})
+            .map((t) => {
+                  'id': t.serverId ?? t.id,
+                  'body': t.body,
+                  'image_path': t.imagePath,
+                })
             .toList(),
       };
       await bridge.updateRuleConfig(jsonEncode(nativeConfig));
@@ -195,21 +229,20 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rules'),
-        actions: [
-          FilledButton.tonal(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Save'),
-          ),
-          const SizedBox(width: 8),
-        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _saving ? null : _save,
+        label: _saving
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Text('Save Rules'),
+        icon: _saving ? null : const Icon(Icons.save),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding:
+            const EdgeInsets.fromLTRB(16, 16, 16, 80), // Extra padding for FAB
         children: [
           // SMS Templates card
           const _SectionHeader(icon: Icons.sms, title: 'SMS Templates'),
@@ -314,7 +347,8 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
           const SizedBox(height: 16),
 
           // Working Hours card
-          const _SectionHeader(icon: Icons.schedule_outlined, title: 'Working Hours'),
+          const _SectionHeader(
+              icon: Icons.schedule_outlined, title: 'Working Hours'),
           const SizedBox(height: 8),
           Card(
             child: Column(
@@ -540,7 +574,8 @@ class _TemplateDropdown extends StatelessWidget {
     final filtered =
         templates.where((t) => t.type == callType || t.type == 'all').toList();
     return DropdownButtonFormField<int?>(
-      initialValue: filtered.any((t) => (t.serverId ?? t.id) == value) ? value : null,
+      initialValue:
+          filtered.any((t) => (t.serverId ?? t.id) == value) ? value : null,
       decoration: InputDecoration(
         labelText: label,
         isDense: true,

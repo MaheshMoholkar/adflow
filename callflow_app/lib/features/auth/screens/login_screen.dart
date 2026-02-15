@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../../core/native/native_bridge.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -34,9 +36,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final password = _passwordController.text;
     try {
       await ref.read(authServiceProvider).login(phone, password);
-      if (mounted) {
-        context.go('/dashboard');
-      }
+      final allGranted = await _checkAllPermissions();
+      if (!mounted) return;
+      context.go(allGranted ? '/dashboard' : '/auth/permissions');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -45,6 +47,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<bool> _checkAllPermissions() async {
+    try {
+      final permissions = [
+        Permission.phone,
+        Permission.contacts,
+        Permission.sms,
+        Permission.notification,
+      ];
+      for (final p in permissions) {
+        if (!await p.isGranted) return false;
+      }
+      final bridge = ref.read(nativeBridgeProvider);
+      return await bridge.isBatteryOptimizationDisabled();
+    } catch (_) {
+      return false;
     }
   }
 
@@ -90,7 +110,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         padding: EdgeInsets.only(left: 12, right: 0),
                         child: Text('+91', style: TextStyle(fontSize: 16)),
                       ),
-                      prefixIconConstraints: BoxConstraints(minWidth: 48, minHeight: 0),
+                      prefixIconConstraints:
+                          BoxConstraints(minWidth: 48, minHeight: 0),
                       hintText: 'Mobile number',
                       counterText: '',
                     ),
@@ -111,8 +132,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         icon: Icon(_obscurePassword
                             ? Icons.visibility_off
                             : Icons.visibility),
-                        onPressed: () =>
-                            setState(() => _obscurePassword = !_obscurePassword),
+                        onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword),
                       ),
                     ),
                     validator: (value) {

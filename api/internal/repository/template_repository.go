@@ -67,6 +67,8 @@ func (r *TemplateRepository) Create(ctx context.Context, userID int64, data temp
 		Body:      data.Body,
 		Type:      data.Type,
 		Channel:   data.Channel,
+		ImageUrl:  nullableText(data.ImageURL),
+		ImageKey:  nullableText(data.ImageKey),
 		Language:  pgtype.Text{String: lang, Valid: true},
 		IsDefault: data.IsDefault,
 	})
@@ -89,6 +91,8 @@ func (r *TemplateRepository) Update(ctx context.Context, id int64, userID int64,
 		Body:      data.Body,
 		Type:      data.Type,
 		Channel:   data.Channel,
+		ImageUrl:  nullableText(data.ImageURL),
+		ImageKey:  nullableText(data.ImageKey),
 		Language:  pgtype.Text{String: lang, Valid: true},
 		IsDefault: data.IsDefault,
 	})
@@ -110,8 +114,16 @@ func (r *TemplateRepository) Delete(ctx context.Context, id int64, userID int64)
 
 func dbTemplateToModel(row db.Template) *template.Template {
 	var lang string
+	var imageURL *string
+	var imageKey *string
 	if row.Language.Valid {
 		lang = row.Language.String
+	}
+	if row.ImageUrl.Valid {
+		imageURL = &row.ImageUrl.String
+	}
+	if row.ImageKey.Valid {
+		imageKey = &row.ImageKey.String
 	}
 	return &template.Template{
 		ID:        row.ID,
@@ -120,9 +132,18 @@ func dbTemplateToModel(row db.Template) *template.Template {
 		Body:      row.Body,
 		Type:      row.Type,
 		Channel:   row.Channel,
+		ImageURL:  imageURL,
+		ImageKey:  imageKey,
 		Language:  lang,
 		IsDefault: row.IsDefault,
 		CreatedAt: row.CreatedAt.Time,
 		UpdatedAt: row.UpdatedAt.Time,
 	}
+}
+
+func nullableText(v *string) pgtype.Text {
+	if v == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: *v, Valid: true}
 }

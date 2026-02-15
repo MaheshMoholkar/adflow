@@ -69,19 +69,19 @@ class ServiceRunningNotifier extends StateNotifier<bool> {
 
 // --- Stats ---
 
-final callsTodayProvider = FutureProvider<int>((ref) {
+final callsTodayProvider = StreamProvider<int>((ref) {
   final db = ref.watch(databaseProvider);
-  return db.countEventsToday();
+  return db.watchEventsTodayCount();
 });
 
-final smsSentTodayProvider = FutureProvider<int>((ref) {
+final smsSentTodayProvider = StreamProvider<int>((ref) {
   final db = ref.watch(databaseProvider);
-  return db.countMessagesByChannel('sms');
+  return db.watchMessagesByChannelCount('sms');
 });
 
-final successRateProvider = FutureProvider<double>((ref) {
+final successRateProvider = StreamProvider<double>((ref) {
   final db = ref.watch(databaseProvider);
-  return db.successRate();
+  return db.watchSuccessRate();
 });
 
 // --- Call events stream listener ---
@@ -90,52 +90,93 @@ final callEventListenerProvider = Provider<void>((ref) {
   final bridge = ref.watch(nativeBridgeProvider);
   final db = ref.watch(databaseProvider);
 
-  bridge.callEventStream.listen((event) async {
-    final type = event['type'] as String?;
-
-    if (type == 'call_event') {
-      await db.insertCallEvent(CallEventsCompanion.insert(
-        eventId: event['event_id'] as String? ?? '',
-        phone: event['phone'] as String? ?? '',
-        contactName: Value(event['contact_name'] as String? ?? ''),
-        direction: event['direction'] as String? ?? '',
-        durationSeconds: Value(event['duration_seconds'] as int? ?? 0),
-        callTimestamp: DateTime.fromMillisecondsSinceEpoch(
-          event['call_timestamp'] as int? ?? 0,
-        ),
-      ));
-    } else if (type == 'message_log') {
-      // Message log fields are sent as a flat map from native side
-      // Find the call event by event_id for correct association
-      final eventId = event['event_id'] as String? ?? '';
-      CallEvent? callEvent;
-      if (eventId.isNotEmpty) {
-        final matches = await (db.select(db.callEvents)
-              ..where((e) => e.eventId.equals(eventId))
-              ..limit(1))
-            .get();
-        if (matches.isNotEmpty) callEvent = matches.first;
-      }
-      // Fallback to most recent event if event_id not found
-      callEvent ??= (await db.getCallEvents(limit: 1)).firstOrNull;
-
-      if (callEvent != null) {
-        await db.insertMessageLog(MessageLogsCompanion.insert(
-          callEventId: callEvent.id,
-          channel: event['channel'] as String? ?? '',
-          status: event['status'] as String? ?? '',
-          sendMethod: Value(event['send_method'] as String? ?? ''),
-          simSlot: Value(event['sim_slot'] as int?),
-          smsParts: Value(event['sms_parts'] as int?),
-          errorMessage: Value(event['error_message'] as String? ?? ''),
-          sentAt: Value(event['sent_at'] != null
-              ? DateTime.fromMillisecondsSinceEpoch(event['sent_at'] as int)
-              : null),
-        ));
-      }
-    }
+  var eventQueue = Future<void>.value();
+  final subscription = bridge.callEventStream.listen((event) {
+    eventQueue = eventQueue
+        .then((_) => _handleNativeEvent(db, event))
+        .catchError((_) {});
   });
+
+  ref.onDispose(subscription.cancel);
 });
+
+Future<void> _handleNativeEvent(
+  AppDatabase db,
+  Map<String, dynamic> event,
+) async {
+  final type = event['type']?.toString();
+
+  if (type == 'call_event') {
+    await db.insertCallEvent(CallEventsCompanion.insert(
+      eventId: event['event_id'] as String? ?? '',
+      phone: event['phone'] as String? ?? '',
+      contactName: Value(event['contact_name'] as String? ?? ''),
+      direction: event['direction'] as String? ?? '',
+      durationSeconds: Value(_toInt(event['duration_seconds']) ?? 0),
+      callTimestamp: DateTime.fromMillisecondsSinceEpoch(
+        _toInt(event['call_timestamp']) ?? 0,
+      ),
+    ));
+    return;
+  }
+
+  if (type == 'message_log') {
+    final payload = event['data'] is Map
+        ? Map<String, dynamic>.from(event['data'] as Map)
+        : event;
+
+    final eventId = payload['event_id']?.toString() ?? '';
+    final callEvent = await _resolveCallEventForMessageLog(db, eventId);
+    if (callEvent == null) return;
+
+    final normalizedChannel =
+        (payload['channel']?.toString().trim().toLowerCase().isNotEmpty ??
+                false)
+            ? payload['channel']?.toString().trim().toLowerCase()
+            : 'sms';
+
+    await db.insertMessageLog(MessageLogsCompanion.insert(
+      callEventId: callEvent.id,
+      channel: normalizedChannel!,
+      status: payload['status']?.toString() ?? '',
+      sendMethod: Value(payload['send_method']?.toString() ?? ''),
+      simSlot: Value(_toInt(payload['sim_slot'])),
+      smsParts: Value(_toInt(payload['sms_parts'])),
+      errorMessage: Value(payload['error_message']?.toString() ?? ''),
+      sentAt: Value(_toDateTimeFromMillis(payload['sent_at'])),
+    ));
+  }
+}
+
+Future<CallEvent?> _resolveCallEventForMessageLog(
+  AppDatabase db,
+  String eventId,
+) async {
+  if (eventId.isNotEmpty) {
+    for (var i = 0; i < 5; i++) {
+      final matches = await (db.select(db.callEvents)
+            ..where((e) => e.eventId.equals(eventId))
+            ..limit(1))
+          .get();
+      if (matches.isNotEmpty) return matches.first;
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+  }
+  return (await db.getCallEvents(limit: 1)).firstOrNull;
+}
+
+int? _toInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
+DateTime? _toDateTimeFromMillis(dynamic value) {
+  final millis = _toInt(value);
+  if (millis == null) return null;
+  return DateTime.fromMillisecondsSinceEpoch(millis);
+}
 
 // --- Sync ---
 
@@ -189,6 +230,7 @@ class SyncService {
             body: tmpl['body'] as String? ?? '',
             type: tmpl['type'] as String? ?? 'outgoing',
             channel: tmpl['channel'] as String? ?? 'both',
+            imagePath: Value(tmpl['image_url'] as String?),
             language: Value(tmpl['language'] as String? ?? 'en'),
             isDefault: Value(tmpl['is_default'] as bool? ?? false),
             source: const Value('server'),
@@ -263,6 +305,10 @@ class SyncService {
 
       await _bridge.updateRuleConfig(jsonEncode(config));
     } catch (_) {}
+  }
+
+  Future<void> pushLocalConfigToNative() async {
+    await _pushRuleConfigToNative();
   }
 
   Future<void> pushRuleConfig(String configJson) async {

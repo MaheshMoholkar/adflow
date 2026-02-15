@@ -30,6 +30,8 @@ type Template struct {
 	Body      string             `json:"body"`
 	Type      string             `json:"type"`
 	Channel   string             `json:"channel"`
+	ImageUrl  pgtype.Text        `json:"image_url"`
+	ImageKey  pgtype.Text        `json:"image_key"`
 	Language  pgtype.Text        `json:"language"`
 	IsDefault bool               `json:"is_default"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`

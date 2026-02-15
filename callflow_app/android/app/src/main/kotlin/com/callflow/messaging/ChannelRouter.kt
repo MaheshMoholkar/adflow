@@ -82,22 +82,34 @@ class ChannelRouter(
         // Send SMS if enabled
         if (evaluation.sendSMS && evaluation.smsTemplate != null) {
             val message = substituteVariables(evaluation.smsTemplate, braceVariables)
+            val imagePath = evaluation.smsImagePath?.trim().orEmpty()
+            val outboundMessage = when {
+                imagePath.isEmpty() -> message
+                message.isBlank() -> imagePath
+                else -> "$message\n$imagePath"
+            }
             val simSlot = evaluation.smsSimSlot
+            val parts = smsModule.getSmsParts(outboundMessage)
+            val sendMethod = if (imagePath.isNotEmpty()) "sms_manager_link" else "sms_manager"
 
-            smsModule.sendSms(phone, message, simSlot) { success, error ->
-                val parts = smsModule.getSmsParts(message)
-                val logData = mapOf<String, Any?>(
-                    "type" to "message_log",
-                    "event_id" to eventId,
-                    "channel" to "sms",
-                    "status" to if (success) "sent" else "failed",
-                    "send_method" to "sms_manager",
-                    "sim_slot" to simSlot,
-                    "sms_parts" to parts,
-                    "error_message" to error,
-                    "sent_at" to System.currentTimeMillis()
-                )
-                CallEventStreamHandler.getInstance().sendMessageLog(logData)
+            // Emit message log at dispatch time so UI stats do not depend on SMS sent callback reliability.
+            val queuedLogData = mapOf<String, Any?>(
+                "type" to "message_log",
+                "event_id" to eventId,
+                "channel" to "sms",
+                "status" to "queued",
+                "send_method" to sendMethod,
+                "sim_slot" to simSlot,
+                "sms_parts" to parts,
+                "error_message" to "",
+                "sent_at" to System.currentTimeMillis()
+            )
+            CallEventStreamHandler.getInstance().sendMessageLog(queuedLogData)
+
+            smsModule.sendSms(phone, outboundMessage, simSlot) { success, error ->
+                if (!success) {
+                    Log.e(TAG, "SMS send callback reported failure: $error")
+                }
             }
         }
     }

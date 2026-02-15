@@ -1,0 +1,3 @@
+ALTER TABLE templates
+DROP COLUMN IF EXISTS image_key,
+DROP COLUMN IF EXISTS image_url;

@@ -1,0 +1,3 @@
+ALTER TABLE templates
+ADD COLUMN image_url TEXT NULL,
+ADD COLUMN image_key TEXT NULL;

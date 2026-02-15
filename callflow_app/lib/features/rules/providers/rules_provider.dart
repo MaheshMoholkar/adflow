@@ -6,7 +6,11 @@ final ruleConfigProvider = StreamProvider<Rule?>((ref) {
   return db.watchRule();
 });
 
-final smsTemplatesProvider = FutureProvider<List<Template>>((ref) {
+final smsTemplatesProvider = StreamProvider<List<Template>>((ref) {
   final db = ref.watch(databaseProvider);
-  return db.getTemplatesByChannel('sms');
+  return db.watchTemplates().map(
+        (templates) => templates
+            .where((t) => t.channel == 'sms' || t.channel == 'both')
+            .toList(),
+      );
 });

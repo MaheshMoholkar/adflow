@@ -24,6 +24,7 @@ class LocalRuleEngine {
         val reason: String = "",
         val sendSMS: Boolean = false,
         val smsTemplate: String? = null,
+        val smsImagePath: String? = null,
         val smsSimSlot: Int = 0,
         val delaySeconds: Int = 0
     )
@@ -167,6 +168,7 @@ class LocalRuleEngine {
         val delaySeconds = ruleConfig.optInt("delay_seconds", 0)
         var sendSMS = false
         var smsTemplate: String? = null
+        var smsImagePath: String? = null
         var smsSimSlot = 0
 
         val smsConfig = ruleConfig.optJSONObject("sms")
@@ -175,7 +177,9 @@ class LocalRuleEngine {
                 smsSimSlot = ruleConfig.optInt("sms_sim_slot", 0)
                 val templateId = getTemplateIdForDirection(smsConfig, direction)
                 if (templateId != null) {
-                    smsTemplate = templates[templateId]?.body
+                    val templateData = templates[templateId]
+                    smsTemplate = templateData?.body
+                    smsImagePath = templateData?.imagePath
                     sendSMS = smsTemplate != null
                 } else {
                     Log.d(TAG, "SMS: no template configured for $direction calls")
@@ -196,6 +200,7 @@ class LocalRuleEngine {
             shouldProcess = true,
             sendSMS = sendSMS,
             smsTemplate = smsTemplate,
+            smsImagePath = smsImagePath,
             smsSimSlot = smsSimSlot,
             delaySeconds = delaySeconds
         )

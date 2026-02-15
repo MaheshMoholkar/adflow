@@ -1,13 +1,15 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/providers/core_providers.dart';
 
 class TemplateEditScreen extends ConsumerStatefulWidget {
   final int? templateId;
@@ -24,7 +26,9 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
   final _bodyController = TextEditingController();
   String _channel = 'sms';
   String _type = 'incoming';
-  String? _imagePath;
+  String? _imageUrl;
+  String? _pendingImagePath;
+  bool _removeImageOnSave = false;
   bool _isLoading = false;
   Template? _existing;
 
@@ -57,7 +61,7 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
         _bodyController.text = template.body;
         _channel = template.channel;
         _type = template.type;
-        _imagePath = template.imagePath;
+        _imageUrl = template.imagePath;
       });
     }
   }
@@ -96,7 +100,7 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
     return (len / 153).ceil();
   }
 
-  bool get _showImagePicker => false; // SMS only, no image support
+  bool get _showImagePicker => _channel == 'sms';
 
   Future<void> _pickImage() async {
     try {
@@ -104,24 +108,12 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
       final picked = await picker.pickImage(source: ImageSource.gallery);
       if (picked == null) return;
 
-      final oldPath = _imagePath;
-
-      // Copy to app's local storage so it persists
-      final appDir = await getApplicationDocumentsDirectory();
-      final imagesDir = Directory(p.join(appDir.path, 'template_images'));
-      if (!imagesDir.existsSync()) {
-        imagesDir.createSync(recursive: true);
+      if (mounted) {
+        setState(() {
+          _pendingImagePath = picked.path;
+          _removeImageOnSave = false;
+        });
       }
-      final ext = p.extension(picked.path);
-      final fileName = 'template_${DateTime.now().millisecondsSinceEpoch}$ext';
-      final savedFile = await File(picked.path).copy(
-        p.join(imagesDir.path, fileName),
-      );
-
-      // Delete the previous image file if it was replaced
-      _deleteImageFile(oldPath);
-
-      if (mounted) setState(() => _imagePath = savedFile.path);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -132,16 +124,11 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
   }
 
   void _removeImage() {
-    _deleteImageFile(_imagePath);
-    setState(() => _imagePath = null);
-  }
-
-  void _deleteImageFile(String? path) {
-    if (path == null) return;
-    try {
-      final file = File(path);
-      if (file.existsSync()) file.deleteSync();
-    } catch (_) {}
+    setState(() {
+      _pendingImagePath = null;
+      _imageUrl = null;
+      _removeImageOnSave = true;
+    });
   }
 
   Future<void> _save() async {
@@ -150,28 +137,110 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
 
     try {
       final db = ref.read(databaseProvider);
-      // Clear imagePath if channel is SMS-only
-      final effectiveImagePath = _channel == 'sms' ? null : _imagePath;
+      final api = ref.read(apiClientProvider);
+      final name = _nameController.text.trim();
+      final body = _bodyController.text;
+      final language = _existing?.language ?? 'en';
+      final isDefault = _existing?.isDefault ?? false;
+
+      String? effectiveImageUrl = _imageUrl;
+      String? effectiveImageKey;
+      if (_pendingImagePath != null) {
+        final upload = await _uploadTemplateImage(api, _pendingImagePath!);
+        effectiveImageUrl = upload.$1;
+        effectiveImageKey = upload.$2;
+      } else if (_removeImageOnSave) {
+        effectiveImageUrl = null;
+        effectiveImageKey = null;
+      }
+
+      int? serverId = _existing?.serverId;
+      var source = _existing?.source ?? 'local';
+      var isSynced = _existing?.isSynced ?? false;
+      String? warningMessage;
+
+      final payload = {
+        'name': name,
+        'body': body,
+        'type': _type,
+        'channel': _channel,
+        'image_url': effectiveImageUrl,
+        'image_key': effectiveImageKey,
+        'language': language,
+        'is_default': isDefault,
+      };
+
+      try {
+        if (serverId != null) {
+          await api.put('/template/$serverId', data: payload);
+          source = 'server';
+          isSynced = true;
+        } else {
+          final response = await api.post('/template', data: payload);
+          final createdServerId = _extractTemplateId(response.data);
+          if (createdServerId != null && createdServerId > 0) {
+            serverId = createdServerId;
+            source = 'server';
+            isSynced = true;
+          } else {
+            source = 'local';
+            isSynced = false;
+            warningMessage =
+                'Template saved locally. Server sync failed (missing template ID).';
+          }
+        }
+      } catch (e) {
+        if (serverId != null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to sync template: $e')),
+            );
+          }
+          return;
+        }
+        source = 'local';
+        isSynced = false;
+        warningMessage = 'Template saved locally. Server sync failed.';
+      }
 
       if (_existing != null) {
         await db.updateTemplate(TemplatesCompanion(
           id: drift.Value(_existing!.id),
-          name: drift.Value(_nameController.text.trim()),
-          body: drift.Value(_bodyController.text),
+          serverId: drift.Value(serverId),
+          name: drift.Value(name),
+          body: drift.Value(body),
           type: drift.Value(_type),
           channel: drift.Value(_channel),
-          imagePath: drift.Value(effectiveImagePath),
+          imagePath: drift.Value(effectiveImageUrl),
+          language: drift.Value(language),
+          isDefault: drift.Value(isDefault),
+          source: drift.Value(source),
+          isSynced: drift.Value(isSynced),
           updatedAt: drift.Value(DateTime.now()),
         ));
       } else {
         await db.insertTemplate(TemplatesCompanion.insert(
-          name: _nameController.text.trim(),
-          body: _bodyController.text,
+          serverId: drift.Value(serverId),
+          name: name,
+          body: body,
           type: _type,
           channel: _channel,
-          imagePath: drift.Value(effectiveImagePath),
-          source: const drift.Value('local'),
+          imagePath: drift.Value(effectiveImageUrl),
+          language: drift.Value(language),
+          isDefault: drift.Value(isDefault),
+          source: drift.Value(source),
+          isSynced: drift.Value(isSynced),
         ));
+      }
+
+      // Template text/image changes must be pushed to native immediately
+      // so active rules use the latest template body without requiring rule re-save.
+      await ref.read(syncProvider).pushLocalConfigToNative();
+
+      if (mounted && warningMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(warningMessage)),
+        );
       }
       if (mounted) context.pop();
     } catch (e) {
@@ -208,9 +277,65 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
 
     if (confirmed == true) {
       final db = ref.read(databaseProvider);
+      final serverId = _existing!.serverId;
+      if (serverId != null) {
+        final api = ref.read(apiClientProvider);
+        try {
+          await api.delete('/template/$serverId');
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to delete template: $e')),
+            );
+          }
+          return;
+        }
+      }
       await db.deleteTemplate(_existing!.id);
+      await ref.read(syncProvider).pushLocalConfigToNative();
       if (mounted) context.pop();
     }
+  }
+
+  Future<(String, String)> _uploadTemplateImage(
+    ApiClient api,
+    String imagePath,
+  ) async {
+    final formData = FormData.fromMap({
+      'image': await MultipartFile.fromFile(
+        imagePath,
+        filename: p.basename(imagePath),
+      ),
+    });
+
+    final response = await api.post('/template/upload-image', data: formData);
+    final body = response.data;
+    if (body is! Map) {
+      throw Exception('Invalid upload response');
+    }
+    final data = body['data'];
+    if (data is! Map) {
+      throw Exception('Missing upload data');
+    }
+    final imageUrl = data['image_url'] as String?;
+    final imageKey = data['image_key'] as String?;
+    if (imageUrl == null ||
+        imageUrl.isEmpty ||
+        imageKey == null ||
+        imageKey.isEmpty) {
+      throw Exception('Upload response missing image URL/key');
+    }
+    return (imageUrl, imageKey);
+  }
+
+  int? _extractTemplateId(dynamic responseBody) {
+    if (responseBody is! Map) return null;
+    final data = responseBody['data'];
+    if (data is! Map) return null;
+    final id = data['id'];
+    if (id is int) return id;
+    if (id is String) return int.tryParse(id);
+    return null;
   }
 
   @override
@@ -221,7 +346,7 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
       appBar: AppBar(
         title: Text(isEditing ? 'Edit Template' : 'New Template'),
         actions: [
-          if (isEditing && _existing?.source != 'server')
+          if (isEditing && !(_existing?.isDefault ?? false))
             IconButton(
               icon: const Icon(Icons.delete_outline),
               onPressed: _delete,
@@ -246,21 +371,62 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
 
             const SizedBox(height: 16),
 
-            // Image picker (disabled for SMS-only)
+            // Image picker for SMS link previews
             if (_showImagePicker) ...[
               Text('Attach Image (optional)',
                   style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
-              if (_imagePath != null && File(_imagePath!).existsSync())
+              if (_pendingImagePath != null &&
+                  File(_pendingImagePath!).existsSync())
                 Stack(
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.file(
-                        File(_imagePath!),
+                        File(_pendingImagePath!),
                         height: 150,
                         width: double.infinity,
                         fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: IconButton.filled(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: _removeImage,
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.errorContainer,
+                          foregroundColor:
+                              Theme.of(context).colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              else if (_imageUrl != null && _imageUrl!.isNotEmpty)
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        _imageUrl!,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 150,
+                          width: double.infinity,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text('Unable to preview image'),
+                        ),
                       ),
                     ),
                     Positioned(
@@ -285,6 +451,11 @@ class _TemplateEditScreenState extends ConsumerState<TemplateEditScreen> {
                   icon: const Icon(Icons.image_outlined),
                   label: const Text('Pick Image'),
                 ),
+              const SizedBox(height: 6),
+              Text(
+                'Image URL will be added above the SMS text when sending.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 16),
             ],
 
