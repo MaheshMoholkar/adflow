@@ -1,64 +1,45 @@
-export default function Home() {
-  const highlights = [
-    {
-      title: 'SMS automation engine',
-      text: 'Run personalized SMS sequences with templates, triggers, and timed follow-ups.',
-    },
-    {
-      title: 'CallFlow-style follow-up',
-      text: 'For phone-first businesses, send instant missed-call responses and reminder messages.',
-    },
-    {
-      title: 'Shareable profile links',
-      text: 'Every business gets a clean public page to convert ad traffic into actions.',
-    },
-  ];
+'use client';
 
-  const steps = [
-    'Set your business profile, automation rules, and templates.',
-    'AdFlow captures inbound leads and missed-call events from your campaigns.',
-    'Leads receive automated SMS and landing-link follow-up instantly.',
-    'They can message, map, or contact your business from one page.',
-  ];
+import { useI18n } from './i18n-context';
+
+export default function Home() {
+  const { t } = useI18n();
+  const highlights = t('home.highlights');
+  const steps = t('home.steps');
 
   return (
     <main className="container site-home">
       <section className="site-hero">
         <div>
-          <p className="label">AdFlow</p>
-          <h1>Convert ad traffic into real customers.</h1>
-          <p className="site-subtitle">
-            AdFlow automates lead engagement with SMS automation and CallFlow-style follow-up, then routes prospects to a focused landing page.
-          </p>
+          <p className="label">{t('home.brandLabel')}</p>
+          <h1>{t('home.heroTitle')}</h1>
+          <p className="site-subtitle">{t('home.heroSubtitle')}</p>
           <div className="site-hero-actions">
-            <a className="action" href="https://adflow.up.railway.app/admin" target="_blank" rel="noreferrer">
-              Open Admin Console
-            </a>
-            <a className="action action-ghost" href="#how-it-works">
-              How It Works
+            <a className="action" href="#how-it-works">
+              {t('home.howItWorks')}
             </a>
           </div>
         </div>
 
         <div className="site-stat-grid">
           <div className="site-stat-card">
-            <p className="site-stat-value">24/7</p>
-            <p className="site-stat-label">Automated lead engagement</p>
+            <p className="site-stat-value">{t('home.stats.alwaysOnValue')}</p>
+            <p className="site-stat-label">{t('home.stats.alwaysOnLabel')}</p>
           </div>
           <div className="site-stat-card">
-            <p className="site-stat-value">SMS Automation</p>
-            <p className="site-stat-label">Triggers, templates, and sequences</p>
+            <p className="site-stat-value">{t('home.stats.smsValue')}</p>
+            <p className="site-stat-label">{t('home.stats.smsLabel')}</p>
           </div>
           <div className="site-stat-card">
-            <p className="site-stat-value">Public page</p>
-            <p className="site-stat-label">One shareable business URL</p>
+            <p className="site-stat-value">{t('home.stats.pageValue')}</p>
+            <p className="site-stat-label">{t('home.stats.pageLabel')}</p>
           </div>
         </div>
       </section>
 
       <section className="section">
-        <p className="label">Why AdFlow</p>
-        <h2 className="site-section-title">Everything needed for fast lead response</h2>
+        <p className="label">{t('home.whyLabel')}</p>
+        <h2 className="site-section-title">{t('home.whyTitle')}</h2>
         <div className="site-grid">
           {highlights.map((item) => (
             <article key={item.title} className="site-card">
@@ -70,8 +51,8 @@ export default function Home() {
       </section>
 
       <section id="how-it-works" className="section">
-        <p className="label">Workflow</p>
-        <h2 className="site-section-title">How your landing flow works</h2>
+        <p className="label">{t('home.workflowLabel')}</p>
+        <h2 className="site-section-title">{t('home.workflowTitle')}</h2>
         <ol className="site-steps">
           {steps.map((step) => (
             <li key={step}>{step}</li>
@@ -80,16 +61,14 @@ export default function Home() {
       </section>
 
       <section className="section site-cta">
-        <h2 className="site-section-title">Customer pages are published at:</h2>
+        <h2 className="site-section-title">{t('home.customerPageTitle')}</h2>
         <p className="site-url">https://adflowapp.vercel.app/&lt;customer-id&gt;</p>
-        <p className="description">
-          Use your assigned customer ID URL to open a specific business landing page.
-        </p>
+        <p className="description">{t('home.customerPageHint')}</p>
       </section>
 
       <section className="section">
-        <p className="label">Advertising</p>
-        <h2 className="site-section-title">Contact for Ads and Partnerships</h2>
+        <p className="label">{t('home.advertisingLabel')}</p>
+        <h2 className="site-section-title">{t('home.advertisingTitle')}</h2>
         <div className="site-hero-actions">
           <a className="action" href="mailto:mahesh.moholkar.dev@gmail.com">
             mahesh.moholkar.dev@gmail.com
