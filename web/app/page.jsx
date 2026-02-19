@@ -1,24 +1,24 @@
 export default function Home() {
   const highlights = [
     {
-      title: 'Instant follow-up',
-      text: 'Respond to missed calls in seconds with personalized SMS and WhatsApp messaging.',
+      title: 'SMS automation engine',
+      text: 'Run personalized SMS sequences with templates, triggers, and timed follow-ups.',
     },
     {
-      title: 'Smart automation',
-      text: 'Use rule-based triggers, templates, and scheduling to keep engagement consistent.',
+      title: 'CallFlow-style follow-up',
+      text: 'For phone-first businesses, send instant missed-call responses and reminder messages.',
     },
     {
-      title: 'Shareable landing links',
-      text: 'Every business gets a clean public page to convert conversations into actions.',
+      title: 'Shareable profile links',
+      text: 'Every business gets a clean public page to convert ad traffic into actions.',
     },
   ];
 
   const steps = [
-    'Set your business profile, response rules, and templates.',
-    'AdFlow detects incoming and missed calls automatically.',
-    'Customers receive follow-up messages and your landing link instantly.',
-    'They can call, message, map, or contact your business from one page.',
+    'Set your business profile, automation rules, and templates.',
+    'AdFlow captures inbound leads and missed-call events from your campaigns.',
+    'Leads receive automated SMS and landing-link follow-up instantly.',
+    'They can message, map, or contact your business from one page.',
   ];
 
   return (
@@ -26,9 +26,9 @@ export default function Home() {
       <section className="site-hero">
         <div>
           <p className="label">AdFlow</p>
-          <h1>Convert missed calls into booked customers.</h1>
+          <h1>Convert ad traffic into real customers.</h1>
           <p className="site-subtitle">
-            AdFlow automates your call follow-up workflow and routes customers to a focused landing page with one tap.
+            AdFlow automates lead engagement with SMS automation and CallFlow-style follow-up, then routes prospects to a focused landing page.
           </p>
           <div className="site-hero-actions">
             <a className="action" href="https://adflow.up.railway.app/admin" target="_blank" rel="noreferrer">
@@ -43,11 +43,11 @@ export default function Home() {
         <div className="site-stat-grid">
           <div className="site-stat-card">
             <p className="site-stat-value">24/7</p>
-            <p className="site-stat-label">Automated call follow-up</p>
+            <p className="site-stat-label">Automated lead engagement</p>
           </div>
           <div className="site-stat-card">
-            <p className="site-stat-value">SMS + WhatsApp</p>
-            <p className="site-stat-label">Multi-channel outreach</p>
+            <p className="site-stat-value">SMS Automation</p>
+            <p className="site-stat-label">Triggers, templates, and sequences</p>
           </div>
           <div className="site-stat-card">
             <p className="site-stat-value">Public page</p>
@@ -58,7 +58,7 @@ export default function Home() {
 
       <section className="section">
         <p className="label">Why AdFlow</p>
-        <h2 className="site-section-title">Everything needed for fast customer response</h2>
+        <h2 className="site-section-title">Everything needed for fast lead response</h2>
         <div className="site-grid">
           {highlights.map((item) => (
             <article key={item.title} className="site-card">
@@ -85,6 +85,19 @@ export default function Home() {
         <p className="description">
           Use your assigned customer ID URL to open a specific business landing page.
         </p>
+      </section>
+
+      <section className="section">
+        <p className="label">Advertising</p>
+        <h2 className="site-section-title">Contact for Ads and Partnerships</h2>
+        <div className="site-hero-actions">
+          <a className="action" href="mailto:mahesh.moholkar.dev@gmail.com">
+            mahesh.moholkar.dev@gmail.com
+          </a>
+          <a className="action action-ghost" href="tel:+919579047391">
+            +91 95790 47391
+          </a>
+        </div>
       </section>
     </main>
   );

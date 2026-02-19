@@ -46,7 +46,6 @@ export default async function LandingPage({ params }) {
 
   const actions = [
     user.phone ? { label: 'Call', href: `tel:${user.phone}` } : null,
-    landing.whatsapp_url ? { label: 'WhatsApp', href: landing.whatsapp_url } : null,
     landing.facebook_url ? { label: 'Facebook', href: landing.facebook_url } : null,
     landing.instagram_url ? { label: 'Instagram', href: landing.instagram_url } : null,
     landing.youtube_url ? { label: 'YouTube', href: landing.youtube_url } : null,
