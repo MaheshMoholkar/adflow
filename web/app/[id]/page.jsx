@@ -21,6 +21,15 @@ function buildMapUrl(user) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
+function descriptionToPoints(description) {
+  if (!description || typeof description !== 'string') return [];
+  return description
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .map((line) => line.replace(/^[-*\u2022]\s+/, '').replace(/^\d+[.)]\s+/, ''))
+    .filter(Boolean);
+}
+
 export default async function LandingPage({ params }) {
   const data = await fetchLanding(params.id);
   if (!data) {
@@ -31,6 +40,7 @@ export default async function LandingPage({ params }) {
   const landing = data.landing || {};
   const headline = landing.headline || user.business_name || user.name || 'Welcome';
   const description = landing.description || '';
+  const descriptionPoints = descriptionToPoints(description);
   const imageUrl = landing.image_url || '';
   const mapUrl = buildMapUrl(user);
 
@@ -70,7 +80,13 @@ export default async function LandingPage({ params }) {
         <div>
           <p className="label">AdFlow Partner</p>
           <h1>{headline}</h1>
-          {description ? <p>{description.slice(0, 140)}</p> : null}
+          {descriptionPoints.length ? (
+            <ul className="hero-points">
+              {descriptionPoints.slice(0, 3).map((point, index) => (
+                <li key={`${point}-${index}`}>{point}</li>
+              ))}
+            </ul>
+          ) : null}
           <div className="meta">
             {user.phone ? <span>{user.phone}</span> : null}
             {user.address || user.city ? (
@@ -91,7 +107,13 @@ export default async function LandingPage({ params }) {
 
       <section className="section">
         {imageUrl ? <img src={imageUrl} alt={headline} /> : null}
-        {description ? <div className="description">{description}</div> : null}
+        {descriptionPoints.length ? (
+          <ul className="description-list">
+            {descriptionPoints.map((point, index) => (
+              <li key={`${point}-${index}`}>{point}</li>
+            ))}
+          </ul>
+        ) : null}
       </section>
     </main>
   );

@@ -63,6 +63,17 @@ a {
   line-height: 1.6;
 }
 
+.hero-points {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.hero-points li + li {
+  margin-top: 4px;
+}
+
 .hero .meta {
   display: flex;
   flex-wrap: wrap;
@@ -91,6 +102,17 @@ a {
   color: var(--muted);
   line-height: 1.7;
   white-space: pre-wrap;
+}
+
+.description-list {
+  margin: 20px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.description-list li + li {
+  margin-top: 8px;
 }
 
 .actions {

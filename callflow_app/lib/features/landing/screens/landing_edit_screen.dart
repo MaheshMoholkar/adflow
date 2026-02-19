@@ -3,8 +3,11 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
+import '../../../core/constants.dart';
+import '../../../core/database/app_database.dart';
 import '../../../core/network/api_client.dart';
 
 class LandingEditScreen extends ConsumerStatefulWidget {
@@ -55,6 +58,7 @@ class _LandingEditScreenState extends ConsumerState<LandingEditScreen> {
   Future<void> _loadLanding() async {
     setState(() => _loading = true);
     final api = ref.read(apiClientProvider);
+    await _loadLandingUrlFromCache();
     try {
       final response = await api.get('/landing');
       _applyLandingResponse(response.data);
@@ -90,15 +94,23 @@ class _LandingEditScreenState extends ConsumerState<LandingEditScreen> {
         : <String, dynamic>{};
 
     _headlineController.text = landing['headline'] as String? ?? '';
-    _descriptionController.text = landing['description'] as String? ?? '';
+    _descriptionController.text =
+        _normalizeDescriptionPoints(landing['description'] as String? ?? '');
     _whatsappController.text = landing['whatsapp_url'] as String? ?? '';
     _facebookController.text = landing['facebook_url'] as String? ?? '';
     _instagramController.text = landing['instagram_url'] as String? ?? '';
     _youtubeController.text = landing['youtube_url'] as String? ?? '';
     _emailController.text = landing['email'] as String? ?? '';
-    _websiteController.text = landing['website_url'] as String? ?? '';
+    _setLandingUrlFromUserId(_extractInt(landing['user_id']));
     _imageUrl = landing['image_url'] as String?;
     _locationController.text = payload['location_url'] as String? ?? '';
+  }
+
+  Future<void> _loadLandingUrlFromCache() async {
+    try {
+      final user = await ref.read(databaseProvider).getUser();
+      _setLandingUrlFromUserId(user?.id);
+    } catch (_) {}
   }
 
   Future<void> _loadLocationFromProfile(ApiClient api) async {
@@ -110,10 +122,51 @@ class _LandingEditScreenState extends ConsumerState<LandingEditScreen> {
       if (data is! Map) return;
       final user = data['user'];
       if (user is! Map) return;
+      _setLandingUrlFromUserId(_extractInt(user['id']));
       _locationController.text = user['location_url'] as String? ?? '';
     } catch (_) {
       // No-op: location field can remain empty if profile fetch fails.
     }
+  }
+
+  int? _extractInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  String _normalizeDescriptionPoints(String raw) {
+    final points = raw
+        .split(RegExp(r'\r?\n'))
+        .map((line) => line.trim())
+        .map(
+          (line) => line.replaceFirst(
+            RegExp(r'^(?:[-*\u2022]\s+|\d+[.)]\s+)'),
+            '',
+          ),
+        )
+        .where((line) => line.isNotEmpty)
+        .toList();
+    return points.join('\n');
+  }
+
+  void _setLandingUrlFromUserId(int? userId) {
+    if (!mounted || userId == null) return;
+    final base = landingBaseUrl.endsWith('/')
+        ? landingBaseUrl.substring(0, landingBaseUrl.length - 1)
+        : landingBaseUrl;
+    _websiteController.text = '$base/$userId';
+  }
+
+  Future<void> _copyLandingUrl() async {
+    final url = _websiteController.text.trim();
+    if (url.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: url));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Landing URL copied')),
+    );
   }
 
   Future<void> _pickImage() async {
@@ -194,7 +247,7 @@ class _LandingEditScreenState extends ConsumerState<LandingEditScreen> {
 
       final payload = {
         'headline': _headlineController.text.trim(),
-        'description': _descriptionController.text.trim(),
+        'description': _normalizeDescriptionPoints(_descriptionController.text),
         'image_url': effectiveImageUrl,
         'image_key': effectiveImageKey,
         'whatsapp_url': _whatsappController.text.trim(),
@@ -265,14 +318,18 @@ class _LandingEditScreenState extends ConsumerState<LandingEditScreen> {
               decoration: const InputDecoration(
                 labelText: 'Headline',
                 hintText: 'Your business headline',
+                alignLabelWithHint: true,
               ),
+              minLines: 2,
+              maxLines: 2,
+              keyboardType: TextInputType.multiline,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _descriptionController,
               decoration: const InputDecoration(
-                labelText: 'Description',
-                hintText: 'Describe your business',
+                labelText: 'Description Points',
+                hintText: 'Add one point per line',
                 alignLabelWithHint: true,
               ),
               maxLines: 5,
@@ -382,8 +439,14 @@ class _LandingEditScreenState extends ConsumerState<LandingEditScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _websiteController,
-              decoration: const InputDecoration(
+              readOnly: true,
+              decoration: InputDecoration(
                 labelText: 'Website URL',
+                suffixIcon: IconButton(
+                  tooltip: 'Copy landing URL',
+                  onPressed: _copyLandingUrl,
+                  icon: const Icon(Icons.copy_rounded),
+                ),
               ),
             ),
             const SizedBox(height: 12),
